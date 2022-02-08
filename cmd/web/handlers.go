@@ -6,6 +6,9 @@ import (
 	"net/http"
 	"strconv"
 
+	// New import
+	// New import
+	"kennethfan.net/snippetbox/pkg/forms"
 	"kennethfan.net/snippetbox/pkg/models"
 )
 
@@ -25,8 +28,6 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *application) showSnippet(w http.ResponseWriter, r *http.Request) {
-    // Pat doesn't strip the colon from the named capture key, so we need to
-    // get the value of ":id" from the query string instead of "id".
     id, err := strconv.Atoi(r.URL.Query().Get(":id"))
     if err != nil || id < 1 {
         app.notFound(w)
@@ -48,24 +49,45 @@ func (app *application) showSnippet(w http.ResponseWriter, r *http.Request) {
     })
 }
 
+
+
 // Add a new createSnippetForm handler, which for now returns a placeholder response.
 func (app *application) createSnippetForm(w http.ResponseWriter, r *http.Request) {
-    w.Write([]byte("Create a new snippet..."))
+    app.render(w, r, "create.page.tmpl", &templateData{
+        // Pass a new empty forms.Form object to the template.
+        Form: forms.New(nil),
+    })
 }
 
 func (app *application) createSnippet(w http.ResponseWriter, r *http.Request) {
-    // Checking if the request method is a POST is now superfluous and can be
-    // removed.
+    err := r.ParseForm()
+    if err != nil {
+        app.clientError(w, http.StatusBadRequest)
+        return
+    }
 
-    title := "O snail"
-    content := "O snail\nClimb Mount Fuji,\nBut slowly, slowly!\n\n– Kobayashi Issa"
-    expires := "7"
+    form := forms.New(r.PostForm)
+    form.Required("title", "content", "expires")
+    form.MaxLength("title", 100)
+    form.PermittedValues("expires", "365", "7", "1")
 
-    id, err := app.snippets.Insert(title, content, expires)
+    if !form.Valid() {
+        app.render(w, r, "create.page.tmpl", &templateData{Form: form})
+        return
+    }
+
+    id, err := app.snippets.Insert(form.Get("title"), form.Get("content"), form.Get("expires"))
     if err != nil {
         app.serverError(w, err)
         return
     }
-    // Change the redirect to use the new semantic URL style of /snippet/:id
+
+    // Use the Put() method to add a string value ("Your snippet was saved
+    // successfully!") and the corresponding key ("flash") to the session
+    // data. Note that if there's no existing session for the current user
+    // (or their session has expired) then a new, empty, session for them
+    // will automatically be created by the session middleware.
+    app.session.Put(r, "flash", "Snippet successfully created!")
+
     http.Redirect(w, r, fmt.Sprintf("/snippet/%d", id), http.StatusSeeOther)
 }

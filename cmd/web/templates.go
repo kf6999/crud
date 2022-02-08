@@ -2,9 +2,11 @@ package main
 
 import (
 	"html/template" // New import
+	// New import
 	"path/filepath" // New import
 	"time"
 
+	"kennethfan.net/snippetbox/pkg/forms"
 	"kennethfan.net/snippetbox/pkg/models"
 )
 
@@ -61,6 +63,11 @@ func newTemplateCache(dir string) (map[string]*template.Template, error) {
 // to it as the build progresses.
 type templateData struct {
     CurrentYear int
+    Form        *forms.Form
     Snippet     *models.Snippet
     Snippets    []*models.Snippet
+    Flash       string
 }
+
+
+
